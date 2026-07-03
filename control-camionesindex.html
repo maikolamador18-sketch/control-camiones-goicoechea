@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Flota — Municipalidad de Goicoechea</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --asphalt: #1C1F22;
+    --asphalt-2: #2A2E33;
+    --concrete: #EDEAE3;
+    --paper: #FBFAF7;
+    --ink: #24262A;
+    --ink-soft: #6B6E73;
+    --orange: #E85D04;
+    --orange-dark: #C74E02;
+    --green: #2B8A3E;
+    --green-bg: #E6F4EA;
+    --red: #C92A2A;
+    --red-bg: #FBE9E9;
+    --amber: #E8A317;
+    --amber-bg: #FCF1DA;
+    --line: #DAD5CA;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--concrete);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    background: var(--asphalt);
+    color: #fff;
+    padding: 18px 28px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-bottom: 4px solid var(--orange);
+  }
+  .topbar-title{
+    display:flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--orange);
+  }
+  .topbar h1{
+    font-family:'Oswald', sans-serif;
+    font-weight: 600;
+    font-size: 24px;
+    letter-spacing: 0.5px;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .clock{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: #C9CCD1;
+    text-align: right;
+  }
+  .clock strong{ color: #fff; font-size: 16px; }
+
+  /* ---------- Summary strip ---------- */
+  .summary{
+    display:flex;
+    gap: 1px;
+    background: var(--line);
+    margin: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .stat{
+    flex:1;
+    background: var(--paper);
+    padding: 18px 24px;
+    display:flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+  }
+  .stat .num{
+    font-family:'Oswald', sans-serif;
+    font-size: 36px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .stat .label{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .stat.disp .num{ color: var(--green); }
+  .stat.ruta .num{ color: var(--red); }
+  .stat.mant .num{ color: var(--amber); }
+
+  /* ---------- Container ---------- */
+  .container{
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px;
+  }
+
+  .toolbar{
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .toolbar input[type="text"]{
+    font-family:'Inter', sans-serif;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 220px;
+    background: var(--paper);
+  }
+  .btn{
+    font-family:'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 10px 18px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.05s ease, filter 0.15s ease;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn-orange{ background: var(--orange); color: #fff; }
+  .btn-orange:hover{ filter: brightness(1.08); }
+  .btn-outline{ background: transparent; border: 1px solid var(--asphalt); color: var(--asphalt); }
+  .btn-outline:hover{ background: var(--asphalt); color: #fff; }
+
+  /* ---------- Grid of ticket cards ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  .ticket{
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    position: relative;
+    padding: 20px 20px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  /* perforated top edge, like a dispatch ticket */
+  .ticket::before{
+    content:"";
+    position:absolute;
+    top:-1px; left:0; right:0;
+    height: 10px;
+    background-image: radial-gradient(circle, var(--concrete) 4px, transparent 4.5px);
+    background-size: 20px 10px;
+    background-repeat: repeat-x;
+    background-position: 6px 0;
+  }
+
+  .ticket-head{
+    display:flex;
+    justify-content: space-between;
+    align-items:flex-start;
+    margin-top: 6px;
+    margin-bottom: 10px;
+  }
+  .plate{
+    font-family:'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 1px;
+  }
+  .truck-type{
+    font-family:'Inter', sans-serif;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .remove-btn{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+  }
+  .remove-btn:hover{ color: var(--red); }
+
+  .status-pill{
+    display:inline-flex;
+    align-items:center;
+    gap: 6px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+  .status-pill .dot{
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .status-pill.disponible{ background: var(--green-bg); color: var(--green); }
+  .status-pill.disponible .dot{ background: var(--green); }
+  .status-pill.en_ruta{ background: var(--red-bg); color: var(--red); }
+  .status-pill.en_ruta .dot{ background: var(--red); }
+  .status-pill.mantenimiento{ background: var(--amber-bg); color: #966300; }
+  .status-pill.mantenimiento .dot{ background: var(--amber); }
+
+  .meta{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 10px 0 14px;
+    line-height: 1.6;
+  }
+
+  .actions{
+    display:flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .toggle-btn{
+    flex: 1;
+    min-width: 140px;
+    padding: 12px 14px;
+    font-family:'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    color: #fff;
+  }
+  .toggle-btn.to-ruta{ background: var(--asphalt); }
+  .toggle-btn.to-ruta:hover{ background: var(--asphalt-2); }
+  .toggle-btn.to-disp{ background: var(--green); }
+  .toggle-btn.to-disp:hover{ filter: brightness(1.1); }
+  .toggle-btn:disabled{ background: #B9B6AC; cursor: not-allowed; }
+
+  select.mant-select{
+    font-family:'Inter', sans-serif;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    cursor: pointer;
+  }
+
+  .history-toggle{
+    background:none;
+    border:none;
+    color: var(--ink-soft);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    cursor:pointer;
+    padding: 0;
+    margin-top: 12px;
+    text-decoration: underline;
+  }
+  .history{
+    margin-top: 8px;
+    border-top: 1px dashed var(--line);
+    padding-top: 8px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    display:none;
+    max-height: 130px;
+    overflow-y:auto;
+  }
+  .history.open{ display:block; }
+  .history div{ padding: 3px 0; }
+
+  .empty-state{
+    text-align:center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+    font-family: 'Inter', sans-serif;
+  }
+  .empty-state .big{
+    font-family:'Oswald', sans-serif;
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+
+  /* ---------- Add-truck panel ---------- */
+  .add-panel{
+    background: var(--asphalt);
+    color: #fff;
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 22px;
+    display:none;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items:flex-end;
+  }
+  .add-panel.open{ display:flex; }
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+  }
+  .field label{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #C9CCD1;
+  }
+  .field input, .field select{
+    font-family:'Inter', sans-serif;
+    padding: 9px 10px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    font-size: 14px;
+    min-width: 160px;
+  }
+
+  .toast{
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--asphalt);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 6px;
+    font-family:'Inter', sans-serif;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.25s ease;
+    pointer-events:none;
+    border-left: 4px solid var(--orange);
+    z-index: 999;
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+  footer{
+    text-align:center;
+    padding: 24px;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  @media (max-width: 520px){
+    .topbar{ padding: 14px 16px; }
+    .container{ padding: 18px 14px; }
+    .stat{ padding: 14px 16px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-title">
+      <span class="eyebrow">Depto. de Servicios / Gestión de Flota</span>
+      <h1>Control de Camiones — Goicoechea</h1>
+    </div>
+    <div class="clock" id="clock">
+      <div id="clock-date">—</div>
+      <strong id="clock-time">--:--:--</strong>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="stat disp">
+      <div class="num" id="count-disponible">0</div>
+      <div class="label">Disponibles</div>
+    </div>
+    <div class="stat ruta">
+      <div class="num" id="count-ruta">0</div>
+      <div class="label">En ruta</div>
+    </div>
+    <div class="stat mant">
+      <div class="num" id="count-mant">0</div>
+      <div class="label">En mantenimiento</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="Buscar por placa o tipo…">
+      <button class="btn btn-orange" id="btn-add-toggle">+ Agregar camión</button>
+    </div>
+
+    <div class="add-panel" id="add-panel">
+      <div class="field">
+        <label>Placa / número</label>
+        <input type="text" id="new-plate" placeholder="Ej. SM-1234">
+      </div>
+      <div class="field">
+        <label>Tipo</label>
+        <select id="new-type">
+          <option>Compactador</option>
+          <option>Volquete</option>
+          <option>Plataforma</option>
+          <option>Cisterna</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <button class="btn btn-orange" id="btn-save-truck">Guardar</button>
+      <button class="btn btn-outline" id="btn-cancel-add" style="border-color:#888; color:#fff;">Cancelar</button>
+    </div>
+
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <footer>Datos compartidos en tiempo real · Municipalidad de Goicoechea</footer>
+  <div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'goicoechea-trucks-v1';
+let trucks = [];
+
+// ---------- Seed data (used only the first time, if nothing is stored yet) ----------
+const seedTrucks = [
+  { id: 't1', plate: 'SM-1234', type: 'Compactador', status: 'disponible', lastAction: null, history: [] },
+  { id: 't2', plate: 'SM-5678', type: 'Volquete',     status: 'disponible', lastAction: null, history: [] },
+  { id: 't3', plate: 'SM-9012', type: 'Plataforma',   status: 'disponible', lastAction: null, history: [] },
+];
+
+function uid(){ return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function fmtTime(iso){
+  const d = new Date(iso);
+  return d.toLocaleString('es-CR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+}
+
+async function loadTrucks(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, true);
+    trucks = JSON.parse(res.value);
+  }catch(e){
+    // nothing stored yet — seed it
+    trucks = seedTrucks;
+    await saveTrucks();
+  }
+  render();
+}
+
+async function saveTrucks(){
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(trucks), true);
+  }catch(e){
+    showToast('No se pudo guardar. Revisa tu conexión.');
+  }
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+function statusLabel(s){
+  return { disponible: 'Disponible', en_ruta: 'En ruta', mantenimiento: 'Mantenimiento' }[s];
+}
+
+function addHistory(truck, text){
+  truck.history = truck.history || [];
+  truck.history.unshift({ text, ts: new Date().toISOString() });
+  if(truck.history.length > 8) truck.history.pop();
+}
+
+async function toggleStatus(id){
+  const truck = trucks.find(t => t.id === id);
+  if(!truck || truck.status === 'mantenimiento') return;
+  const now = new Date().toISOString();
+  if(truck.status === 'disponible'){
+    truck.status = 'en_ruta';
+    addHistory(truck, 'Salida registrada');
+  } else {
+    truck.status = 'disponible';
+    addHistory(truck, 'Entrada registrada');
+  }
+  truck.lastAction = now;
+  await saveTrucks();
+  render();
+  showToast(`${truck.plate}: ${statusLabel(truck.status)}`);
+}
+
+async function setMaintenance(id, checked){
+  const truck = trucks.find(t => t.id === id);
+  if(!truck) return;
+  if(checked){
+    truck.prevStatus = truck.status;
+    truck.status = 'mantenimiento';
+    addHistory(truck, 'Enviado a mantenimiento');
+  } else {
+    truck.status = truck.prevStatus || 'disponible';
+    addHistory(truck, 'Regresó de mantenimiento');
+  }
+  truck.lastAction = new Date().toISOString();
+  await saveTrucks();
+  render();
+}
+
+async function removeTruck(id){
+  const truck = trucks.find(t => t.id === id);
+  if(!truck) return;
+  if(!confirm(`¿Eliminar el camión ${truck.plate} de la lista?`)) return;
+  trucks = trucks.filter(t => t.id !== id);
+  await saveTrucks();
+  render();
+}
+
+function toggleHistory(id){
+  const el = document.getElementById('hist-' + id);
+  el.classList.toggle('open');
+}
+
+function render(){
+  const grid = document.getElementById('grid');
+  const query = document.getElementById('search').value.trim().toLowerCase();
+
+  const filtered = trucks.filter(t =>
+    t.plate.toLowerCase().includes(query) || t.type.toLowerCase().includes(query)
+  );
+
+  document.getElementById('count-disponible').textContent = trucks.filter(t=>t.status==='disponible').length;
+  document.getElementById('count-ruta').textContent = trucks.filter(t=>t.status==='en_ruta').length;
+  document.getElementById('count-mant').textContent = trucks.filter(t=>t.status==='mantenimiento').length;
+
+  if(filtered.length === 0){
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">
+      <div class="big">No hay camiones que mostrar</div>
+      <div>Agrega un camión o ajusta la búsqueda.</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(t => {
+    const isMant = t.status === 'mantenimiento';
+    const isRuta = t.status === 'en_ruta';
+    const btnLabel = isRuta ? 'Marcar entrada' : 'Marcar salida';
+    const btnClass = isRuta ? 'to-disp' : 'to-ruta';
+    const lastText = t.lastAction ? `Último movimiento: ${fmtTime(t.lastAction)}` : 'Sin movimientos registrados';
+    const historyHtml = (t.history||[]).map(h => `<div>${fmtTime(h.ts)} — ${h.text}</div>`).join('') || '<div>Sin historial aún.</div>';
+
+    return `
+      <div class="ticket">
+        <div class="ticket-head">
+          <div>
+            <div class="plate">${t.plate}</div>
+            <div class="truck-type">${t.type}</div>
+          </div>
+          <button class="remove-btn" onclick="removeTruck('${t.id}')" title="Eliminar">✕</button>
+        </div>
+
+        <span class="status-pill ${t.status}"><span class="dot"></span>${statusLabel(t.status)}</span>
+
+        <div class="meta">${lastText}</div>
+
+        <div class="actions">
+          <button class="toggle-btn ${btnClass}" ${isMant ? 'disabled' : ''} onclick="toggleStatus('${t.id}')">${btnLabel}</button>
+          <select class="mant-select" onchange="setMaintenance('${t.id}', this.value === 'si')">
+            <option value="no" ${!isMant?'selected':''}>En servicio</option>
+            <option value="si" ${isMant?'selected':''}>En mantenimiento</option>
+          </select>
+        </div>
+
+        <button class="history-toggle" onclick="toggleHistory('${t.id}')">Ver historial ▾</button>
+        <div class="history" id="hist-${t.id}">${historyHtml}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ---------- Add truck panel ----------
+document.getElementById('btn-add-toggle').addEventListener('click', () => {
+  document.getElementById('add-panel').classList.toggle('open');
+});
+document.getElementById('btn-cancel-add').addEventListener('click', () => {
+  document.getElementById('add-panel').classList.remove('open');
+});
+document.getElementById('btn-save-truck').addEventListener('click', async () => {
+  const plateInput = document.getElementById('new-plate');
+  const plate = plateInput.value.trim().toUpperCase();
+  const type = document.getElementById('new-type').value;
+  if(!plate){ showToast('Escribe una placa o número.'); return; }
+  trucks.push({ id: uid(), plate, type, status: 'disponible', lastAction: null, history: [] });
+  await saveTrucks();
+  plateInput.value = '';
+  document.getElementById('add-panel').classList.remove('open');
+  render();
+  showToast(`${plate} agregado.`);
+});
+
+document.getElementById('search').addEventListener('input', render);
+
+// ---------- Clock ----------
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clock-date').textContent = now.toLocaleDateString('es-CR', { weekday:'long', day:'2-digit', month:'long' });
+  document.getElementById('clock-time').textContent = now.toLocaleTimeString('es-CR');
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+loadTrucks();
+</script>
+</body>
+</html>
